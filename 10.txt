@@ -1,0 +1,1484 @@
+.model large
+.stack 1000h
+.data  
+
+     ; Add these to your existing data section
+    username        db 'admin', 0, 0, 0, 0, 0   ; 10 bytes for username
+    password        db 'pass123', 0, 0, 0       ; 10 bytes for password
+    user_input      db 10 dup(0)                ; Buffer for user input
+    pass_input     db 10 dup(0)                ; Buffer for password input
+    
+    login_header   db '=== Library Management System Login ===', 13, 10, '$'
+    user_prompt    db 'Username: $'
+    pass_prompt    db 13, 10, 'Password: $'
+    login_error    db 13, 10, 'Invalid username or password!', 13, 10
+                   db 'Press any key to try again...', 13, 10, '$'
+    login_success  db 13, 10, 'Login successful!', 13, 10
+                   db 'Press any key to continue...', 13, 10, '$'
+    max_attempts   db 3                         ; Maximum login attempts
+    current_attempt db 0                        ; Current attempt counter
+    
+    ; Constants for book records
+    MAX_BOOKS    equ 25                    ; Maximum number of books
+    ID_SIZE      equ 5                     ; Size of book ID
+    NAME_SIZE    equ 35                    ; Size of book name
+    AUTHOR_SIZE  equ 15                    ; Size of author name
+    RECORD_SIZE  equ ID_SIZE + NAME_SIZE + AUTHOR_SIZE
+    
+    ; Book record structure
+    book_records db MAX_BOOKS * RECORD_SIZE dup(0) 
+    empty_slots  db MAX_BOOKS dup(1) 
+    
+    books_data:                                            
+        db '00001', 'Introduction to Assembly Language  ', 'Alan Smith     '
+        db '00002', 'Data Structures and Algorithms     ', 'John Johnson   '
+        db '00003', 'Computer Architecture Basics       ', 'Robert Davis   '
+        db '00004', 'Programming Logic                  ', 'Sarah Wilson   '
+        db '00005', 'Operating Systems Design           ', 'Michael Brown  '
+        db '00006', 'Database Management Systems        ', 'Emma Martinez  '
+        db '00007', 'Digital Logic Design               ', 'David Anderson '
+        db '00008', 'Computer Networks                  ', 'James Miller   '
+        db '00009', 'Software Engineering Principles    ', 'Lisa Garcia    '
+        db '00010', 'Web Development Fundamentals       ', 'Thomas Moore   '
+        
+    list_pointers   dw 55, 110, 165, 220, 275, 330, 385, 440, 495, 0
+    empty_pointer   dw 550, 605, 660, 715, 770, 825, 880, 935, 990, 1045
+    head_ptr        dw 0
+    tail_ptr        dw 495               
+    book_count      dw 10
+
+    ; Messages
+    menu_msg    db '=== Library Management System ===', 13, 10
+                db '1. View All Books', 13, 10
+                db '2. Search Book', 13, 10
+                db '3. Add New Book', 13, 10
+                db '4. Update Book', 13, 10
+                db '5. Delete Book', 13, 10
+                db '6. Exit', 13, 10, 13, 10
+                db 'Enter choice: $'
+                
+    header      db '================ Library Book List ================', 13, 10
+                db 'ID    Book Name                              Author', 13, 10
+                db '---------------------------------------------------', 13, 10, '$'
+    
+    footer      db 13, 10, 'Press any key to return to main menu$'
+    newline     db 13, 10, '$'
+    invalid_msg db 13, 10, 'Invalid choice! Press any key to continue.$'
+    
+  
+    book_notfound   db 13, 10, 'Book not found!', 13, 10
+                    db 'Press any key to continue...$'
+    found_header    db 13, 10, '=== Book Found ===', 13, 10
+                    db 'ID    Book Name                              Author', 13, 10
+                    db '---------------------------------------------------', 13, 10, '$' 
+    
+    search_buffer db 6 dup(0)   
+    input_prompt  db 'Enter Book ID (5 digits): $'
+    
+    delete_prompt   db 'Enter Book ID to delete: $'
+    delete_success  db 13, 10, 'Book successfully deleted!', 13, 10
+                    db 'Press any key to continue...$'
+    delete_error    db 13, 10, 'Book not found or invalid input!', 13, 10
+                    db 'Press any key to continue...$'    
+    confirm_delete  db 13, 10, 'Book found:', 13, 10, '$'
+    confirm_msg     db 13, 10, 'Are you sure you want to delete this book? (Y/N): $'
+    cancel_msg      db 13, 10, 'Deletion cancelled.', 13, 10
+                    db 'Press any key to continue...$'  
+                    
+    input_id_msg     db 'Enter Book ID (5 digits): $'
+    input_name_msg   db 13, 10, 'Enter Book Name (max 35 chars): $'
+    input_author_msg db 13, 10, 'Enter Author Name (max 15 chars): $'
+    dup_id_msg       db 13, 10, 'Error: Book ID already exists!', 13, 10
+                     db 'Press any key to continue...$'
+    dup_name_msg     db 13, 10, 'Error: Book Name already exists!', 13, 10
+                     db 'Press any key to continue...$'
+    list_full_msg    db 13, 10, 'Error: Library is full!', 13, 10
+                     db 'Press any key to continue...$'
+    add_success_msg  db 13, 10, 'Book added successfully!', 13, 10
+                     db 'Press any key to continue...$'
+    pointer_error_msg    db 13, 10, 'Error: Invalid book position!', 13, 10
+                         db 'Press any key to continue...$'
+    temp_buffer      db 55 dup(' ')     
+    
+    update_prompt    db 'Enter Book ID to update: $'
+    book_found       db 13, 10, 'Current Book Information:', 13, 10, '$'
+    update_menu      db 13, 10, '1. Update Book Name', 13, 10
+                     db '2. Update Author', 13, 10
+                     db '3. Cancel', 13, 10
+                     db 'Enter choice: $'
+    name_prompt      db 13, 10, 'Enter new book name: $'
+    author_prompt    db 13, 10, 'Enter new author name: $'
+    update_success   db 13, 10, 'Book updated successfully!', 13, 10
+                     db 'Press any key to continue...$'
+    update_cancel    db 13, 10, 'Update cancelled.', 13, 10
+                     db 'Press any key to continue...$' 
+    update_header    db '===== Update Book Info =====', 13, 10, '$'
+                     
+.code  
+login proc
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+
+login_start:
+    ; Check if max attempts reached
+    mov al, current_attempt
+    cmp al, max_attempts
+    jae login_failed_max
+
+    ; Clear screen
+    call clear_screen
+
+    ; Display login header
+    mov dx, offset login_header
+    mov ah, 9
+    int 21h
+
+    ; Get username
+    mov dx, offset user_prompt
+    mov ah, 9
+    int 21h
+
+    ; Read username
+    mov cx, 10          ; Maximum username length
+    mov si, offset user_input
+    mov ah, 1
+read_username:
+    int 21h
+    cmp al, 13         ; Check for Enter key
+    je check_username
+    mov [si], al
+    inc si
+    loop read_username
+
+check_username:
+    mov byte ptr [si], 0    ; Null terminate
+    mov si, offset user_input
+    mov di, offset username
+    mov cx, 5              ; Compare first 5 chars
+compare_user:
+    mov al, [si]
+    mov bl, [di]
+    cmp al, bl
+    jne login_failed
+    inc si
+    inc di
+    loop compare_user
+
+    ; Get password
+    mov dx, offset pass_prompt
+    mov ah, 9
+    int 21h
+
+    ; Read password (with fixed seven asterisks masking)
+    mov cx, 10          ; Maximum password length
+    mov si, offset pass_input
+    
+    ; Display seven asterisks first
+    mov dl, '*'
+    mov ah, 2
+    mov cx, 7          ; Display exactly 7 asterisks
+display_asterisks:
+    int 21h
+    loop display_asterisks
+    
+    ; Move cursor back to start of asterisks
+    mov cx, 7          ; Move back 7 positions
+    mov dl, 8          ; Backspace character
+move_back:
+    mov ah, 2
+    int 21h
+    loop move_back
+    
+    ; Now read the actual password
+    mov cx, 10         ; Reset counter for password input
+read_password:
+    mov ah, 8          ; Function 8: Read character without echo
+    int 21h
+    
+    cmp al, 13         ; Check for Enter key
+    je finish_password
+    
+    cmp cx, 0          ; Check if we've reached maximum length
+    je read_password   ; If yes, ignore character
+    
+    mov [si], al       ; Store the character
+    inc si             ; Move to next position
+    dec cx             ; Decrease remaining length
+    
+    ; Move cursor right one position
+    mov dl, 20h        ; Space character
+    mov ah, 2
+    int 21h
+    mov dl, 8          ; Move back
+    int 21h
+    
+    jmp read_password
+
+finish_password:
+    ; Move cursor to end of asterisks
+    mov cx, 7
+move_to_end:
+    mov dl, 20h
+    mov ah, 2
+    int 21h
+    loop move_to_end
+    
+    jmp check_password
+
+check_password:
+    mov byte ptr [si], 0    ; Null terminate
+    mov si, offset pass_input
+    mov di, offset password
+    mov cx, 7              ; Compare first 7 chars
+compare_pass:
+    mov al, [si]
+    mov bl, [di]
+    cmp al, bl
+    jne login_failed
+    inc si
+    inc di
+    loop compare_pass
+
+    ; Login successful
+    mov dx, offset login_success
+    mov ah, 9
+    int 21h
+    
+    mov ah, 1              ; Wait for key press
+    int 21h
+    
+    mov al, 1              ; Return success
+    jmp login_done
+
+login_failed:
+    inc current_attempt
+    mov dx, offset login_error
+    mov ah, 9
+    int 21h
+    
+    mov ah, 1              ; Wait for key press
+    int 21h
+    
+    jmp login_start
+
+login_failed_max:
+    mov al, 0              ; Return failure
+    
+login_done:
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+login endp
+
+main proc
+    ; Set up data segment
+    mov ax, @data
+    mov ds, ax 
+    
+    call login
+    cmp al, 0          ; Check login result
+    je exit            ; Exit if login failed
+
+main_loop:
+    ; Clear screen before showing menu
+    call clear_screen
+
+    ; Display menu
+    mov dx, offset menu_msg
+    mov ah, 9
+    int 21h
+
+    ; Read choice
+    mov ah, 1
+    int 21h
+    
+    ; Check for valid input
+    cmp al, '1'
+    jb invalid_input
+    cmp al, '6'
+    ja invalid_input
+    
+    ; Convert to number and process
+    sub al, '0'
+    
+    cmp al, 1
+    je view_books
+    cmp al, 2         
+    je search_books
+    cmp al, 3         
+    je add_books 
+    cmp al, 4         
+    je update_books
+    cmp al, 5         
+    je delete_books
+    cmp al, 6
+    je exit
+    jmp invalid_input
+
+view_books:
+    call display_all_books
+    jmp main_loop
+    
+search_books:         
+    call search_book  
+    jmp main_loop 
+
+add_books:         
+    call add_book  
+    jmp main_loop
+
+update_books:         
+    call update_book  
+    jmp main_loop
+                           
+delete_books:         
+    call delete_book  
+    jmp main_loop
+    
+invalid_input:
+    mov dx, offset invalid_msg
+    mov ah, 9
+    int 21h
+    mov ah, 1       ; Wait for key
+    int 21h
+    jmp main_loop
+
+main endp
+
+; Clear screen procedure
+clear_screen proc
+    push ax
+    push bx
+    push cx
+    push dx
+    
+    mov ah, 06h    ; Scroll up function
+    mov al, 0      ; Clear entire screen
+    mov bh, 07h    ; Normal attribute
+    mov cx, 0      ; Upper left corner
+    mov dx, 184fh  ; Lower right corner
+    int 10h
+    
+    ; Reset cursor to top
+    mov ah, 02h
+    mov bh, 0
+    mov dx, 0
+    int 10h
+    
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+clear_screen endp
+
+; Initialize display
+init_display proc
+    call clear_screen
+    
+    mov dx, offset header
+    mov ah, 9
+    int 21h
+    ret
+init_display endp
+
+; Get first record
+get_first_record proc
+    mov si, offset books_data
+    ret
+get_first_record endp
+
+; Get record pointer
+get_record_pointer proc
+    mov bx, si
+    ret
+get_record_pointer endp
+
+; Format and display line
+format_display_line proc
+    push ax
+    push cx
+    push dx
+    
+    ; Print ID
+    mov cx, ID_SIZE
+print_id_loop:
+    mov dl, [bx]
+    mov ah, 2
+    int 21h
+    inc bx
+    loop print_id_loop
+    
+    ; Space after ID
+    mov dl, ' '
+    mov ah, 2
+    int 21h
+    
+    ; Print Name
+    mov cx, NAME_SIZE
+print_name_loop:
+    mov dl, [bx]
+    mov ah, 2
+    int 21h
+    inc bx
+    loop print_name_loop
+    
+    ; Space after Name
+    mov dl, ' '
+    mov ah, 2
+    int 21h
+    
+    ; Print Author
+    mov cx, AUTHOR_SIZE
+print_author_loop:
+    mov dl, [bx]
+    mov ah, 2
+    int 21h
+    inc bx
+    loop print_author_loop
+    
+    ; Newline
+    mov dx, offset newline
+    mov ah, 9
+    int 21h
+    
+    pop dx
+    pop cx
+    pop ax
+    ret
+format_display_line endp
+
+check_end_of_list proc
+    push ax
+    push bx
+    
+    ; First check if SI is 0 (end marker from get_next_pointer)
+    cmp si, 0
+    jz at_end         ; If SI=0, we're done
+    
+    ; Otherwise do normal calculation
+    mov ax, si
+    sub ax, offset books_data
+    xor dx, dx
+    mov bx, RECORD_SIZE
+    div bx
+    cmp ax, book_count
+    jmp done
+    
+at_end:
+    ; Set flags to indicate end (ensure ZF=1)
+    xor ax, ax
+    
+done:
+    pop bx
+    pop ax
+    ret
+check_end_of_list endp
+
+get_next_pointer proc
+    push ax
+    push bx
+    push dx
+    
+    ; Calculate index into list_pointers
+    mov bx, si
+    sub bx, offset books_data    
+    xor dx, dx                   
+    mov ax, bx                   
+    mov bx, RECORD_SIZE
+    div bx                       
+    
+    ; Get next pointer from list_pointers
+    shl ax, 1                    
+    mov bx, offset list_pointers
+    add bx, ax
+    mov ax, [bx]                 
+    cmp ax, 0
+    jz end_of_list
+    
+    mov si, offset books_data    
+    add si, ax                   
+    jmp pointer_done            ; Skip setting SI to 0
+    
+end_of_list:
+    xor si, si                  ; Clear SI to indicate end of list
+    
+pointer_done:
+    pop dx
+    pop bx
+    pop ax
+    ret
+get_next_pointer endp
+
+; Show footer
+show_footer proc
+    mov dx, offset footer
+    mov ah, 9
+    int 21h
+    
+    mov ah, 1      ; Wait for key
+    int 21h
+    ret
+show_footer endp
+
+display_all_books proc
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+
+    call clear_screen
+    
+    mov dx, offset header
+    mov ah, 9
+    int 21h
+
+    ; Start from first book
+    xor ax, ax              ; Start with first record
+    mov cx, book_count      ; Number of books to display
+
+display_loop:
+    push cx                 ; Save counter
+    
+    mov si, offset books_data
+    add si, ax              ; Point to current record
+    mov bx, si
+    call format_display_line
+
+    ; Get next record offset
+    mov bx, ax
+    mov cx, RECORD_SIZE
+    xor dx, dx
+    div cx                  ; Get index
+    shl ax, 1              ; Convert to word offset
+    mov si, offset list_pointers
+    add si, ax
+    mov ax, [si]           ; Get next record offset
+    
+    pop cx                 ; Restore counter
+    loop display_loop
+
+    call show_footer
+    
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+display_all_books endp  
+
+handle_not_found proc
+    push ax
+    push dx
+    
+    ; Clear screen
+    call clear_screen
+    
+    ; Display not found message
+    mov dx, offset book_notfound
+    mov ah, 9
+    int 21h
+    
+    ; Wait for key press
+    mov ah, 1
+    int 21h
+    
+    pop dx
+    pop ax
+    ret
+handle_not_found endp  
+
+search_book proc
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    
+    ; Clear screen and show prompt
+    call clear_screen
+    mov dx, offset input_prompt
+    mov ah, 9
+    int 21h
+    
+    ; Read 5 digit ID
+    mov cx, ID_SIZE      
+    mov si, offset search_buffer
+read_id_loop:
+    mov ah, 1           
+    int 21h
+    
+    ; Validate digit
+    cmp al, '0'
+    jb invalid_char
+    cmp al, '9'
+    ja invalid_char
+    
+    mov [si], al        
+    inc si
+    loop read_id_loop
+    
+    mov byte ptr [si], '$'
+    
+    ; Initialize sequential search
+    mov si, offset books_data  ; Start at first record
+    mov cx, book_count        ; Number of records to check
+
+search_loop:
+    push cx                   ; Save count
+    push si                   ; Save current record pointer
+    
+    ; Compare book IDs
+    mov di, offset search_buffer
+    mov cx, ID_SIZE
+compare_loop:
+    mov al, [si]       
+    mov bl, [di]       
+    cmp al, bl
+    jne not_match      ; If not match, check next record
+    inc si
+    inc di
+    loop compare_loop
+    
+    ; If we get here, IDs match
+    pop si             ; Restore record pointer for display
+    pop cx             ; Remove counter
+    jmp found
+
+not_match:
+    pop si             ; Restore record pointer
+    pop cx             ; Restore counter
+    
+    ; Get next record using list_pointers
+    push cx            ; Save counter
+    mov ax, si         ; Current position
+    sub ax, offset books_data
+    mov bx, RECORD_SIZE
+    xor dx, dx
+    div bx             ; AX = current index
+    shl ax, 1          ; Multiply by 2 for word offset
+    mov bx, offset list_pointers
+    add bx, ax
+    mov ax, [bx]       ; Get next record offset
+    cmp ax, 0          ; Check if end of list
+    je reached_end
+    mov si, offset books_data
+    add si, ax         ; Point to next record
+    pop cx
+    loop search_loop   ; Continue if more records
+
+reached_end:
+    pop cx             ; Balance stack
+    jmp not_found
+    
+invalid_char:
+    call handle_not_found
+    jmp search_done
+    
+not_found:
+    call handle_not_found
+    jmp search_done
+    
+found:
+    ; Display found record
+    call clear_screen
+    mov dx, offset found_header
+    mov ah, 9
+    int 21h
+    
+    ; BX needs to point to record for display
+    mov bx, si
+    call format_display_line
+    
+    mov dx, offset footer   
+    mov ah, 9
+    int 21h
+    
+    mov ah, 1
+    int 21h
+    
+search_done:
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+search_book endp  
+
+add_book proc
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+
+    ; Initialize temp_buffer with spaces
+    mov cx, RECORD_SIZE
+    mov al, ' '
+    mov di, offset temp_buffer
+    rep stosb              ; Fill buffer with spaces
+
+    ; Check if library is full
+    mov ax, book_count
+    cmp ax, MAX_BOOKS
+    jae list_full
+
+    ; Clear screen
+    call clear_screen
+
+    ; Get Book ID
+    mov dx, offset input_id_msg
+    mov ah, 9
+    int 21h
+
+    ; Read ID
+    mov cx, ID_SIZE
+    mov si, offset temp_buffer
+read_new_id:
+    mov ah, 1
+    int 21h
+    
+    ; Validate digit
+    cmp al, '0'
+    jb in_valid_input
+    cmp al, '9'
+    ja invalid_input
+    
+    mov [si], al
+    inc si
+    loop read_new_id
+
+    ; Check for duplicate ID
+    mov si, offset temp_buffer    ; New ID
+    mov di, offset books_data     ; Starting point of existing books
+    mov cx, book_count           ; Number of books to check
+check_duplicate:
+    test cx, cx                  ; Check if we have books to compare
+    jz get_book_name            ; If no books, skip duplicate check
+    
+    push cx
+    push si
+    push di
+    mov cx, ID_SIZE             ; Compare 5 digits
+compare_ids:
+    mov al, [si]                ; Get digit from new ID
+    mov bl, [di]                ; Get digit from existing ID
+    cmp al, bl
+    jne next_book_check
+    inc si
+    inc di
+    loop compare_ids
+    
+    ; If we get here, IDs match (duplicate found)
+    pop di
+    pop si
+    pop cx
+    jmp duplicate_error
+
+next_book_check:
+    pop di
+    pop si
+    pop cx
+    add di, RECORD_SIZE         ; Move to next book
+    loop check_duplicate
+
+get_book_name:
+    ; Get book name
+    mov dx, offset input_name_msg
+    mov ah, 9
+    int 21h
+
+    ; Read book name
+    mov cx, NAME_SIZE
+    mov si, offset temp_buffer
+    add si, ID_SIZE            ; Position after ID
+read_name:
+    mov ah, 1
+    int 21h
+    
+    cmp al, 13                ; Check for Enter key
+    je pad_name_spaces
+    
+    mov [si], al
+    inc si
+    loop read_name
+    jmp get_author_name
+
+pad_name_spaces:
+    mov al, ' '               ; Pad with spaces
+pad_name_loop:
+    mov [si], al
+    inc si
+    loop pad_name_loop
+
+get_author_name:
+    ; Get author name
+    mov dx, offset input_author_msg
+    mov ah, 9
+    int 21h
+
+    ; Read author name
+    mov cx, AUTHOR_SIZE
+    mov si, offset temp_buffer
+    add si, ID_SIZE
+    add si, NAME_SIZE         ; Position after book name
+read_author:
+    mov ah, 1
+    int 21h
+    
+    cmp al, 13               ; Check for Enter key
+    je pad_author_spaces
+    
+    mov [si], al
+    inc si
+    loop read_author
+    jmp insert_new_book
+
+pad_author_spaces:
+    mov al, ' '              ; Pad with spaces
+pad_author_loop:
+    mov [si], al
+    inc si
+    loop pad_author_loop
+
+insert_new_book:
+    ; Calculate new record position
+    mov bx, book_count
+    mov ax, RECORD_SIZE
+    mul bx                   ; AX = book_count * RECORD_SIZE
+    mov di, offset books_data
+    add di, ax              ; DI points to new record position
+
+    ; Save the new record offset
+    push ax                 ; Save for later use
+
+    ; Copy record from temp_buffer to books_data
+    mov si, offset temp_buffer
+    mov cx, RECORD_SIZE
+    rep movsb              ; Copy the entire record
+
+    ; Update linked list pointers
+    mov bx, book_count
+    shl bx, 1              ; BX = book_count * 2 (for word offset)
+    mov si, offset list_pointers
+    add si, bx
+    
+    ; If this is not the first book
+    cmp book_count, 0
+    je first_book
+    
+    ; Update previous tail's pointer
+    mov bx, tail_ptr
+    shl bx, 1
+    mov di, offset list_pointers
+    add di, bx
+    pop ax                  ; Restore new record offset
+    push ax                 ; Save it again for later
+    mov [di], ax  
+             ; Previous tail points to new record
+    jmp finish_insert
+
+first_book:
+    mov head_ptr, 0        ; First book starts at offset 0
+
+finish_insert:
+    ; Update tail pointer
+    pop ax                 ; Restore new record offset
+    mov tail_ptr, ax       ; New record becomes tail
+    
+    ; Set new record's next pointer to 0
+    mov bx, book_count
+    shl bx, 1
+    mov si, offset list_pointers
+    add si, bx
+    mov word ptr [si], 0   ; New tail points to nothing
+
+    ; Increment book count
+    inc book_count
+
+    ; Show success message
+    mov dx, offset add_success_msg
+    mov ah, 9
+    int 21h
+
+    ; Display updated book list
+    call display_all_books
+    jmp add_done
+
+list_full:
+    mov dx, offset list_full_msg
+    mov ah, 9
+    int 21h
+    jmp add_done
+
+in_valid_input:
+    mov dx, offset invalid_msg
+    mov ah, 9
+    int 21h
+    jmp add_done
+
+duplicate_error:
+    mov dx, offset dup_id_msg
+    mov ah, 9
+    int 21h
+    jmp add_done
+
+add_done:
+    mov ah, 1              ; Wait for keypress
+    int 21h
+    
+    call clear_screen      ; Clear screen before returning
+    
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+add_book endp
+
+update_book proc
+   push ax
+   push bx
+   push cx
+   push dx
+   push si
+   push di
+
+   ; Clear screen and show header
+   call clear_screen
+   mov dx, offset update_header
+   mov ah, 9
+   int 21h
+  
+   ; Get Book ID
+   mov dx, offset update_prompt
+   mov ah, 9
+   int 21h
+  
+   ; Read ID
+   mov cx, ID_SIZE
+   mov si, offset search_buffer
+read_id_update:
+   mov ah, 1
+   int 21h
+  
+   ; Validate digit
+   cmp al, '0'
+   jb invalid_update
+   cmp al, '9'
+   ja invalid_update
+  
+   mov [si], al
+   inc si
+   loop read_id_update
+
+   ; Search for book
+   mov si, offset search_buffer
+   mov di, offset books_data
+   mov cx, book_count
+find_book:
+   push cx
+   push si
+   push di
+   
+   mov cx, ID_SIZE
+compare_book_id:
+   mov al, [si]
+   mov bl, [di]
+   cmp al, bl
+   jne next_book
+   inc si
+   inc di
+   loop compare_book_id
+   
+   ; Found the book - show info and update menu
+   pop di              ; DI points to found record
+   pop si
+   pop cx
+   
+   ; Display current book info
+   mov dx, offset book_found
+   mov ah, 9
+   int 21h
+   
+   mov bx, di
+   call format_display_line
+   
+   ; Show update menu
+   mov dx, offset update_menu
+   mov ah, 9
+   int 21h
+   
+   ; Get choice
+   mov ah, 1
+   int 21h
+   
+   cmp al, '1'
+   je update_name
+   cmp al, '2'
+   je update_author
+   cmp al, '3'
+   je cancel_update
+   jmp invalid_update
+
+next_book:
+   pop di
+   pop si
+   pop cx
+   add di, RECORD_SIZE
+   loop find_book
+   jmp book_not_found
+
+update_name:
+   ; Clear screen and show header
+   call clear_screen
+   mov dx, offset update_header
+   mov ah, 9
+   int 21h
+   
+   ; Get new name
+   mov dx, offset name_prompt
+   mov ah, 9
+   int 21h
+   
+   push di             ; Save record pointer
+   
+   ; Read new name
+   mov cx, NAME_SIZE
+   mov si, offset temp_buffer
+read_new_name:
+   mov ah, 1
+   int 21h
+   
+   cmp al, 13         ; Check for Enter
+   je pad_new_name
+   
+   mov [si], al
+   inc si
+   loop read_new_name
+   jmp check_update_name
+
+pad_new_name:
+   mov al, ' '
+pad_name_update:
+   mov [si], al
+   inc si
+   loop pad_name_update
+   jmp check_update_name
+
+check_update_name:
+   ; Check for duplicate name in other records
+   mov si, offset temp_buffer
+   mov bx, offset books_data
+   mov cx, book_count
+check_name_loop:
+   cmp bx, di         ; Skip current record
+   je after_name_check
+   
+   push cx
+   push si
+   push bx
+   add bx, ID_SIZE    ; Point to name field
+   mov cx, NAME_SIZE
+compare_name_update:
+   mov al, [si]
+   mov dl, [bx]
+   cmp al, dl
+   jne name_different
+   inc si
+   inc bx
+   loop compare_name_update
+   
+   ; Found duplicate
+   pop bx
+   pop si
+   pop cx
+   pop di            ; Restore record pointer
+   jmp duplicate_update
+
+name_different:
+   pop bx
+   pop si
+   pop cx
+after_name_check:
+   add bx, RECORD_SIZE
+   loop check_name_loop
+   
+   ; Update name
+   pop di            ; Restore record pointer
+   add di, ID_SIZE   ; Point to name field
+   mov si, offset temp_buffer
+   mov cx, NAME_SIZE
+   rep movsb
+   jmp update_done
+
+update_author:
+   ; Clear screen and show header
+   call clear_screen
+   mov dx, offset update_header
+   mov ah, 9
+   int 21h
+   
+   ; Get new author
+   mov dx, offset author_prompt
+   mov ah, 9
+   int 21h
+   
+   push di             ; Save record pointer
+   
+   ; Read new author into temp_buffer
+   mov cx, AUTHOR_SIZE
+   mov si, offset temp_buffer
+read_new_author:
+   mov ah, 1
+   int 21h
+   
+   cmp al, 13
+   je pad_new_author
+   
+   mov [si], al
+   inc si
+   dec cx             
+   jnz read_new_author
+   jmp do_author_update
+
+pad_new_author:
+   ; Pad remaining spaces
+   mov al, ' '
+pad_author_update:
+   mov [si], al
+   inc si
+   loop pad_author_update
+   jmp do_author_update    
+
+do_author_update:
+   pop di              ; Get back record pointer
+   add di, ID_SIZE     
+   add di, NAME_SIZE   ; DI now points to author field
+
+   ; Optional: Clear old value first
+   push di
+   mov cx, AUTHOR_SIZE
+   mov al, ' '
+clear_old:
+   mov [di], al
+   inc di
+   loop clear_old
+   pop di
+   
+   ; Copy new value from temp_buffer to record
+   mov si, offset temp_buffer
+   mov cx, AUTHOR_SIZE
+update_loop:
+   mov al, [si]       ; Get character from temp_buffer
+   mov [di], al       ; Store in record
+   inc si
+   inc di
+   loop update_loop
+   
+   jmp update_done
+
+cancel_update:
+   mov dx, offset update_cancel
+   mov ah, 9
+   int 21h
+   jmp update_done
+
+invalid_update:
+book_not_found:
+   mov dx, offset book_notfound
+   mov ah, 9
+   int 21h
+   jmp update_done
+
+duplicate_update:
+   mov dx, offset dup_name_msg
+   mov ah, 9
+   int 21h
+   jmp update_done
+
+update_done:
+   mov dx, offset update_success
+   mov ah, 9
+   int 21h
+   
+   mov ah, 1      ; Wait for key
+   int 21h 
+   
+   ; Clear screen before returning to menu
+   call clear_screen
+   
+   pop di
+   pop si
+   pop dx
+   pop cx
+   pop bx
+   pop ax
+   ret
+update_book endp
+
+delete_book proc
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+
+    ; Clear screen and show prompt
+    call clear_screen
+    mov dx, offset delete_prompt    
+    mov ah, 9
+    int 21h
+    
+    ; Read 5 digit ID
+    mov cx, ID_SIZE      
+    mov si, offset search_buffer
+read_id:                    
+    mov ah, 1           
+    int 21h
+    
+    ; Validate digit
+    cmp al, '0'
+    jb invalid_delete
+    cmp al, '9'
+    ja invalid_delete
+    
+    mov [si], al        
+    inc si
+    loop read_id           
+
+    ; Initialize for search
+    mov si, offset books_data      
+    xor di, di                     ; di will track previous node
+    mov cx, book_count            
+
+search_delete_loop:
+    push cx                        
+    push si
+    push di                        ; Save previous node position
+    
+    ; Compare book IDs
+    mov di, offset search_buffer
+    mov cx, ID_SIZE
+compare:                    
+    mov al, [si]       
+    mov bl, [di]       
+    cmp al, bl
+    jne no_match
+    inc si
+    inc di
+    loop compare          
+    
+    ; Found match - show book and confirm deletion
+    pop di                         ; Restore previous node position
+    pop si             
+    pop cx             
+    
+    ; Display book information
+    mov dx, offset confirm_delete
+    mov ah, 9
+    int 21h
+    
+    mov bx, si
+    call format_display_line    
+    
+    ; Ask for confirmation
+    mov dx, offset confirm_msg
+    mov ah, 9
+    int 21h
+    
+    ; Get Y/N response
+    mov ah, 1
+    int 21h
+    
+    ; Convert to uppercase if lowercase
+    cmp al, 'a'
+    jb check_response
+    cmp al, 'z'
+    ja check_response
+    sub al, 32         
+    
+check_response:
+    cmp al, 'Y'
+    je process_delete
+    cmp al, 'N'
+    je cancel_delete
+    jmp invalid_delete
+
+no_match:
+    pop di                         ; Restore previous node position
+    pop si             
+    pop cx             
+    
+    ; Update previous position to current
+    mov di, si
+    
+    ; Get next record pointer
+    mov ax, si
+    sub ax, offset books_data
+    mov bx, RECORD_SIZE
+    xor dx, dx
+    div bx            
+    shl ax, 1         
+    mov bx, offset list_pointers
+    add bx, ax
+    mov ax, [bx]      
+    
+    ; Check if end of list
+    cmp ax, 0         
+    je not_found_delete
+    
+    ; Move to next record
+    mov si, offset books_data
+    add si, ax        
+    loop search_delete_loop
+
+process_delete:
+    ; Calculate current node index
+    mov ax, si
+    sub ax, offset books_data
+    mov bx, RECORD_SIZE
+    xor dx, dx
+    div bx                         ; AX = current node index
+    
+    ; Check if deleting head node
+    cmp di, 0
+    je delete_head
+    
+    ; Check if deleting tail node
+    cmp ax, tail_ptr
+    je delete_tail
+    
+    ; Middle node deletion
+    jmp delete_middle
+
+delete_head:
+    ; Get pointer to next node
+    shl ax, 1
+    mov bx, offset list_pointers
+    add bx, ax
+    mov ax, [bx]                   ; AX = next node pointer
+    mov head_ptr, ax              ; Update head pointer
+    jmp finish_delete
+
+delete_tail:
+    ; Update tail pointer to previous node
+    mov ax, di
+    sub ax, offset books_data
+    mov tail_ptr, ax
+    
+    ; Set previous node's next pointer to 0
+    mov bx, RECORD_SIZE
+    xor dx, dx
+    div bx
+    shl ax, 1
+    mov bx, offset list_pointers
+    add bx, ax
+    mov word [bx], 0
+    jmp finish_delete
+
+delete_middle:
+    mov ax, si
+    sub ax, offset books_data
+    mov bx, RECORD_SIZE
+    xor dx, dx
+    div bx                         ; AX = current node index
+    push ax                        ; Save current index
+    
+    ; Get pointer to next node
+    shl ax, 1
+    mov bx, offset list_pointers
+    add bx, ax
+    mov ax, [bx]                   ; AX = next node pointer
+    push ax                        ; Save next pointer
+    
+    ; Calculate previous node's index
+    mov ax, di
+    sub ax, offset books_data
+    mov bx, RECORD_SIZE
+    xor dx, dx
+    div bx                         ; AX = previous node index
+    
+    ; Update previous node's pointer to skip current node
+    shl ax, 1
+    mov bx, offset list_pointers
+    add bx, ax
+    pop ax                         ; Restore next pointer
+    mov [bx], ax                   ; Point previous to next
+    
+    pop ax                        
+
+finish_delete:
+    ; Clear deleted record
+    mov di, si
+    mov cx, RECORD_SIZE
+    mov al, 0
+clear_loop:
+    mov [di], al
+    inc di
+    loop clear_loop
+    
+    ; Update empty slots
+    mov ax, si
+    sub ax, offset books_data
+    mov bx, RECORD_SIZE
+    div bx
+    mov bx, ax
+    mov empty_slots[bx], 1
+    
+    ; Decrease book count
+    dec book_count
+    
+    ; Show success message
+    mov dx, offset delete_success
+    mov ah, 9
+    int 21h
+    jmp delete_done
+
+cancel_delete:
+    mov dx, offset cancel_msg
+    mov ah, 9
+    int 21h
+    jmp delete_done
+
+invalid_delete:
+not_found_delete:
+    mov dx, offset delete_error
+    mov ah, 9
+    int 21h
+
+delete_done:
+    mov ah, 1         
+    int 21h
+    
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+delete_book endp
+
+exit:
+    mov ax, 4C00h
+    int 21h
+
+end main
